@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const configuredBase = import.meta.env.VITE_API_BASE_URL || '';
+const normalizedBase = configuredBase.endsWith('/') ? configuredBase.slice(0, -1) : configuredBase;
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
+  baseURL: normalizedBase || '',
   headers: {
     'Content-Type': 'application/json'
   },
