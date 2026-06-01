@@ -68,8 +68,8 @@ CORS_ORIGIN=*
 
 Notes:
 
-- `CORS_ORIGIN` should be your frontend domain in production.
-- `PORT` is assigned by many platforms automatically. If so, keep `process.env.PORT` behavior.
+- **`CORS_ORIGIN` is required**: set this to your frontend domain in production (e.g. `https://app.example.com`) or `http://localhost:5173` for local development.
+- `PORT` is optional: many hosting platforms provide `PORT` at runtime. If not provided, the server will fall back to `5000` by default for local development.
 
 ### Frontend (`frontend/.env`)
 
