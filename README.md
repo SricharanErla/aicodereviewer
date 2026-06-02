@@ -13,26 +13,17 @@ AI Code Reviewer is a full-stack web app where users paste source code, choose a
 ## Architecture
 
 1. User enters code and language in the frontend.
-2. Frontend sends `POST /api/review` to backend.
-3. Backend validates input and requests AI review from Gemini.
-4. If Gemini fails with fallback-worthy errors, backend retries via Groq.
-5. Backend normalizes response and sends structured JSON to frontend.
-6. Frontend renders score, findings, summary, and efficient corrected code.
+2. Frontend sends `POST /api/review` through the shared API client.
+3. The API client points to `/api` locally or to the deployed backend origin in production.
+4. Backend validates input and requests AI review from Gemini.
+5. If Gemini fails with fallback-worthy errors, backend retries via Groq.
+6. Backend normalizes response and sends structured JSON to frontend.
+7. Frontend renders score, findings, summary, and efficient corrected code.
 
 ## Project Structure
 
 ```text
 ai-code-reviewer/
-├── frontend/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── services/
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── package.json
-│   ├── vite.config.js
-│   └── ...
 ├── backend/
 │   ├── src/
 │   │   ├── controllers/
@@ -43,6 +34,16 @@ ai-code-reviewer/
 │   │   └── server.js
 │   ├── package.json
 │   └── .env
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── services/
+│   │   ├── App.jsx
+│   │   ├── main.jsx
+│   │   └── index.css
+│   ├── package.json
+│   ├── vite.config.js
+│   └── ...
 └── README.md
 ```
 
@@ -63,21 +64,21 @@ GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 GEMINI_MODEL=gemini-2.0-flash
 GROQ_API_KEY=YOUR_GROQ_API_KEY
 GROQ_MODEL=llama-3.1-8b-instant
-CORS_ORIGIN=*
+CORS_ORIGIN=http://localhost:5173
 ```
 
 Notes:
 
-- **`CORS_ORIGIN` is required**: set this to your frontend domain in production (e.g. `https://app.example.com`) or `http://localhost:5173` for local development.
-- `PORT` is optional: many hosting platforms provide `PORT` at runtime. If not provided, the server will fall back to `5000` by default for local development.
+- `CORS_ORIGIN` is optional but recommended in production. Set it to your frontend origin, or use a comma-separated list for multiple allowed origins.
+- `PORT` is optional: many hosting platforms provide `PORT` at runtime. If not provided, the server falls back to `5000` for local development.
 
 ### Frontend (`frontend/.env`)
 
 ```env
-VITE_API_BASE_URL=http://localhost:5000
+VITE_API_BASE_URL=https://your-backend.example.com
 ```
 
-In production this must point to your deployed backend URL.
+Leave it unset for local development. When set, use the backend origin only; the client automatically adds `/api`.
 
 ## End-to-End Local Workflow
 
@@ -179,13 +180,17 @@ Successful response:
 }
 ```
 
-## Deployment Workflow (End-to-End)
+## Deployment Roadmap
 
-This is the recommended production workflow using Render (backend) + Vercel (frontend).
+The recommended production setup is:
 
-### Phase A: Pre-deployment checks
+- Frontend: Vercel
+- Backend: Render, Railway, Fly, or any Node host
+- API contract: frontend calls the backend at `/api/review` and `/api/health`
 
-Run these locally first:
+### Step 1: Validate locally
+
+Run the build and syntax checks before you deploy:
 
 ```bash
 cd backend
@@ -196,55 +201,90 @@ cd ../frontend
 npm run build
 ```
 
-If frontend build passes and backend syntax checks pass, proceed.
+If these pass, the code is ready for deployment.
 
-### Phase B: Deploy backend (Render)
+### Step 2: Configure backend environment variables
 
-1. Push repository to GitHub.
-2. In Render, create a new Web Service from this repo.
-3. Set root directory to `backend`.
-4. Configure:
-   - Build command: `npm install`
-   - Start command: `npm start`
-5. Add environment variables:
-   - `PORT` (optional if Render auto-assigns)
-   - `GEMINI_API_KEY`
-   - `GEMINI_MODEL`
-   - `GROQ_API_KEY`
-   - `GROQ_MODEL`
-   - `CORS_ORIGIN` (set to your Vercel frontend URL)
-6. Deploy.
-7. Verify health endpoint:
+Set these in `backend/.env` for local development and in your host’s env settings for production:
 
-```bash
-curl https://YOUR_RENDER_BACKEND_URL/api/health
+```env
+PORT=5000
+GEMINI_API_KEY=your_key
+GEMINI_MODEL=gemini-2.0-flash
+GROQ_API_KEY=your_key
+GROQ_MODEL=llama-3.1-8b-instant
+CORS_ORIGIN=http://localhost:5173
 ```
 
-### Phase C: Deploy frontend (Vercel)
+Rules:
 
-1. In Vercel, import the same GitHub repo.
-2. Set root directory to `frontend`.
-3. Build command: `npm run build`.
-4. Output directory: `dist`.
-5. Add environment variable:
-   - `VITE_API_BASE_URL=https://YOUR_RENDER_BACKEND_URL`
-6. Deploy.
+- Use the deployed frontend URL for `CORS_ORIGIN` in production.
+- Keep the model names configurable so you can switch providers without code changes.
 
-### Phase D: Post-deployment validation
+### Step 3: Deploy the backend
 
-1. Open deployed frontend URL.
-2. Submit a sample review.
-3. Confirm response renders score and corrected code.
-4. Confirm no CORS errors in browser console.
-5. Confirm backend logs show successful requests.
+Create a Node web service in your hosting platform:
 
-### Phase E: Production hardening checklist
+1. Connect the GitHub repo.
+2. Set the root directory to `backend`.
+3. Set the build command to `npm install`.
+4. Set the start command to `npm start`.
+5. Add the backend environment variables from Step 2.
+6. Deploy the service.
 
-- Set `CORS_ORIGIN` to exact frontend domain (not `*`).
-- Rotate leaked/old API keys.
-- Keep provider models configurable via env vars.
-- Monitor Render logs for quota/model errors.
-- Set alerts for backend downtime.
+After deployment, verify health:
+
+```bash
+curl https://YOUR_BACKEND_URL/api/health
+```
+
+Expected response:
+
+```json
+{ "success": true, "message": "AI Code Reviewer API is running" }
+```
+
+### Step 4: Configure the frontend for production
+
+Set the frontend environment variable to the backend origin only:
+
+```env
+VITE_API_BASE_URL=https://YOUR_BACKEND_URL
+```
+
+Important:
+
+- Do not include `/api` in `VITE_API_BASE_URL`.
+- The client adds `/api` automatically.
+
+### Step 5: Deploy the frontend
+
+Create a static frontend deployment in Vercel:
+
+1. Import the same GitHub repo.
+2. Set the root directory to `frontend`.
+3. Set the build command to `npm run build`.
+4. Set the output directory to `dist`.
+5. Add `VITE_API_BASE_URL=https://YOUR_BACKEND_URL`.
+6. Deploy the site.
+
+### Step 6: Smoke test the full flow
+
+1. Open the frontend URL.
+2. Paste a short code sample.
+3. Select a programming language.
+4. Click Review Code.
+5. Confirm score, summary, and corrected code appear.
+6. Confirm there are no CORS errors in the browser console.
+7. Confirm the backend logs show the review request.
+
+### Step 7: Production hardening
+
+- Keep `CORS_ORIGIN` as the exact frontend origin.
+- Keep API keys out of the repo.
+- Monitor backend logs for quota or provider errors.
+- Keep `VITE_API_BASE_URL` pointed at the backend origin only.
+- Re-run the local build and health checks before every release.
 
 ## Recommended Release Workflow
 

@@ -1,13 +1,16 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import reviewRoutes from './routes/reviewRoutes.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 
+dotenv.config({ path: new URL('../.env', import.meta.url) });
+
 const app = express();
 
-// Configure CORS: support single origin or comma-separated list
-const rawOrigins = process.env.CORS_ORIGIN || '*';
-let corsOptions = { origin: rawOrigins, credentials: false };
+// Configure CORS: support single origin, a comma-separated list, or a permissive fallback.
+const rawOrigins = process.env.CORS_ORIGIN?.trim();
+let corsOptions = { origin: '*', credentials: false };
 
 if (rawOrigins && rawOrigins !== '*') {
   const allowed = rawOrigins.split(',').map((s) => s.trim()).filter(Boolean);
@@ -20,6 +23,8 @@ if (rawOrigins && rawOrigins !== '*') {
     },
     credentials: false
   };
+} else if (!rawOrigins) {
+  console.warn('CORS_ORIGIN is not set; allowing requests from any origin.');
 }
 
 app.use(cors(corsOptions));

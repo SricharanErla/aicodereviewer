@@ -89,7 +89,7 @@ export default function App() {
     const startedAt = Date.now();
 
     try {
-      const response = await api.post('/api/review', {
+      const response = await api.post('/review', {
         language,
         code
       });
